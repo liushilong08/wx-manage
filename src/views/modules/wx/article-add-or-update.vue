@@ -1,5 +1,5 @@
 <template>
-    <el-dialog :title="dataForm.id ? '修改' : '新增'" :close-on-click-modal="false" :visible.sync="visible" width="85%" top="0">
+    <div v-show="visible">
         <el-form :model="dataForm" :rules="dataRule" ref="dataForm" size="mini" label-width="80px">
             <el-row>
                 <el-col :span="12">
@@ -36,18 +36,18 @@
             <el-form-item label="标签" prop="tags">
                 <tags-editor v-model="dataForm.tags"></tags-editor>
             </el-form-item>
-            <el-form-item label="文章首图" prop="image">
+            <el-form-item label="封面图" prop="image">
                 <el-input v-model="dataForm.image" placeholder="图片链接">
                     <OssUploader slot="append" @uploaded="dataForm.image=$event"></OssUploader>
                 </el-input>
             </el-form-item>
             <tinymce-editor ref="editor" v-model="dataForm.content"></tinymce-editor>
         </el-form>
-        <div slot="footer" class="dialog-footer">
-            <el-button @click="visible = false">取消</el-button>
+        <div class="margin-top text-right">
+            <el-button @click="$emit('hide')">取消</el-button>
             <el-button type="primary" @click="dataFormSubmit()">确定</el-button>
         </div>
-    </el-dialog>
+    </div>
 </template>
 
 <script>
@@ -58,9 +58,14 @@ export default {
         tagsEditor: () => import("@/components/tags-editor"),
         OssUploader: () => import('../oss/oss-uploader')
     },
+    props:{
+        visible:{
+            type:Boolean,
+            default:false
+        }
+    },
     data() {
         return {
-            visible: false,
             dataForm: {
                 id: "",
                 type: '1',
@@ -95,16 +100,23 @@ export default {
         }
     },
     methods: {
-        init(article) {
-            this.visible = true
-            if(article && article.id){
-                this.dataForm = article;
-                this.dataForm.type = article.type + "";
-            }else{
-                this.$nextTick(() => {
-                    this.$refs["dataForm"].resetFields()
-                })
-            }
+        init(id) {
+            this.dataForm.id = id || "";
+            this.$nextTick(() => {
+                this.$refs["dataForm"].resetFields();
+                if (id > 0) {
+                    this.$http({
+                        url: this.$http.adornUrl(`/manage/article/info/${this.dataForm.id}`),
+                        method: "get",
+                        params: this.$http.adornParams()
+                    }).then(({ data }) => {
+                        if (data && data.code === 200) {
+                            this.dataForm=data.article;
+                            this.dataForm.type = data.article.type + "";
+                        }
+                    });
+                }
+            });
         },
         // 表单提交
         dataFormSubmit() {
@@ -121,8 +133,8 @@ export default {
                                 type: "success",
                                 duration: 1500,
                                 onClose: () => {
-                                    this.visible = false;
                                     this.$emit("refreshDataList");
+                                    this.$emit('hide')
                                 }
                             });
                         } else {
